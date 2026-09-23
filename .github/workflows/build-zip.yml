@@ -1,0 +1,47 @@
+name: Build plugin ZIP
+
+# LimeSurvey only accepts a plugin ZIP whose single top level folder is named
+# exactly like the plugin ("ReplaceErrorMessages"). A ZIP from GitHub's
+# "Code -> Download ZIP" button has a folder named after the repository and the
+# branch instead, and the install then stops with
+# "Could not parse config.xml file.". This workflow builds a correct ZIP.
+#
+# Run it from the Actions tab (Run workflow) to get the ZIP as an artifact, or
+# publish a release to get the ZIP attached to that release.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ReplaceErrorMessages.zip
+        run: |
+          mkdir -p build/ReplaceErrorMessages
+          cp config.xml ReplaceErrorMessages.php LICENSE README.md build/ReplaceErrorMessages/
+          cd build
+          zip -r ../ReplaceErrorMessages.zip ReplaceErrorMessages
+
+      - name: Check the ZIP layout
+        run: |
+          unzip -l ReplaceErrorMessages.zip
+          unzip -p ReplaceErrorMessages.zip ReplaceErrorMessages/config.xml > /dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ReplaceErrorMessages
+          path: ReplaceErrorMessages.zip
+
+      - name: Attach the ZIP to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ github.event.release.tag_name }}" ReplaceErrorMessages.zip --clobber
